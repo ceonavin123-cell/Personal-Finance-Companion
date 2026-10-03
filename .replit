@@ -22,7 +22,7 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-VITE_SUPABASE_URL = "https://supabase.com/dashboard/project/pckbsdvspdvtutvawnom"
+VITE_SUPABASE_URL = "https://pckbsdvspdvtutvawnom.supabase.co/rest/v1/"
 VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBja2JzZHZzcGR2dHV0dmF3bm9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5OTkxMTcsImV4cCI6MjEwNjU3NTExN30.iIJBCST0NrxPRadycsUS3fmhuj8PU3qw2nuLZagxBEo"
 
 [nix]
