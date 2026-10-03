@@ -1,0 +1,2005 @@
+# PERSONAL FINANCE APP
+
+## Final AI Build Specification
+
+**Version:** 1.0
+**Purpose:** Build a production-ready MVP personal finance application.
+**Target platforms:** Lovable, Replit, Antigravity, or similar AI coding platforms.
+
+---
+
+# 1. BUILD INSTRUCTION
+
+Build a modern, simple, responsive personal finance web application.
+
+The application must help ordinary users:
+
+* Record income
+* Record expenses
+* Record loans
+* Record grants
+* Track money they owe and are owed
+* Create budgets
+* Create savings goals
+* Understand their financial situation
+* Learn basic financial concepts
+
+The most important feature is extremely easy transaction entry.
+
+Users should be able to enter transactions using:
+
+1. Voice
+2. Text
+3. Camera/receipt scan
+4. Manual form
+
+The application should NOT feel like accounting software.
+
+It should feel like a simple financial companion.
+
+---
+
+# 2. PRODUCT PRINCIPLE
+
+The main user experience is:
+
+```text
+What happened to your money?
+```
+
+The user can say:
+
+> I spent 500 on lunch.
+
+or type:
+
+> Salary 85000 today
+
+or scan:
+
+> A restaurant receipt.
+
+The application converts this into a structured transaction and asks the user to confirm it.
+
+---
+
+# 3. TECHNOLOGY STACK
+
+Use:
+
+* Next.js
+* React
+* TypeScript
+* Tailwind CSS
+* shadcn/ui
+* Supabase
+* PostgreSQL
+* Supabase Authentication
+* Supabase Storage
+* Supabase Edge Functions
+* Zod
+* TanStack Query
+* Recharts
+
+Do not introduce unnecessary microservices.
+
+Use a modular monolith architecture.
+
+---
+
+# 4. DATABASE
+
+Use Supabase PostgreSQL.
+
+Create these main tables:
+
+```text
+profiles
+accounts
+categories
+transactions
+budgets
+goals
+loans
+grants
+contacts
+recurring_transactions
+attachments
+notifications
+integrations
+ai_requests
+```
+
+---
+
+# 5. DATABASE SCHEMA
+
+## profiles
+
+```text
+id UUID PRIMARY KEY
+full_name TEXT
+avatar_url TEXT
+currency TEXT DEFAULT 'NPR'
+language TEXT DEFAULT 'en'
+timezone TEXT DEFAULT 'Asia/Kathmandu'
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+The `id` must reference the authenticated Supabase user.
+
+---
+
+## accounts
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+name TEXT NOT NULL
+type TEXT NOT NULL
+currency TEXT DEFAULT 'NPR'
+opening_balance NUMERIC DEFAULT 0
+is_active BOOLEAN DEFAULT true
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+Account types:
+
+```text
+cash
+bank
+wallet
+credit_card
+savings
+other
+```
+
+---
+
+## categories
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NULL
+name TEXT NOT NULL
+type TEXT NOT NULL
+icon TEXT
+is_default BOOLEAN DEFAULT false
+created_at TIMESTAMPTZ
+```
+
+Category types:
+
+```text
+income
+expense
+```
+
+Default income categories:
+
+```text
+Salary
+Business
+Freelance
+Interest
+Grant
+Gift
+Refund
+Other
+```
+
+Default expense categories:
+
+```text
+Food
+Housing
+Transport
+Bills
+Health
+Education
+Shopping
+Entertainment
+Personal
+Other
+```
+
+---
+
+# 6. TRANSACTIONS
+
+This is the central table.
+
+Do NOT create separate income and expense tables.
+
+Use one transaction table.
+
+```text
+transactions
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+account_id UUID
+category_id UUID
+
+type TEXT NOT NULL
+
+amount NUMERIC NOT NULL
+currency TEXT DEFAULT 'NPR'
+
+description TEXT
+merchant TEXT
+
+transaction_date TIMESTAMPTZ NOT NULL
+
+source TEXT DEFAULT 'manual'
+
+loan_id UUID NULL
+grant_id UUID NULL
+contact_id UUID NULL
+
+attachment_id UUID NULL
+
+metadata JSONB
+
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+Transaction types:
+
+```text
+income
+expense
+loan_received
+loan_payment
+grant_received
+grant_expense
+money_lent
+money_received
+transfer
+```
+
+Source values:
+
+```text
+manual
+voice
+text
+scan
+import
+```
+
+---
+
+# 7. LOANS
+
+```text
+loans
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+name TEXT NOT NULL
+lender TEXT
+principal_amount NUMERIC NOT NULL
+remaining_amount NUMERIC NOT NULL
+interest_rate NUMERIC DEFAULT 0
+payment_amount NUMERIC
+payment_frequency TEXT
+start_date DATE
+end_date DATE
+next_payment_date DATE
+status TEXT DEFAULT 'active'
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+Statuses:
+
+```text
+active
+paid
+overdue
+cancelled
+```
+
+---
+
+# 8. GRANTS
+
+```text
+grants
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+name TEXT NOT NULL
+provider TEXT
+amount NUMERIC NOT NULL
+used_amount NUMERIC DEFAULT 0
+purpose TEXT
+received_date DATE
+expiry_date DATE
+status TEXT DEFAULT 'active'
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+---
+
+# 9. CONTACTS
+
+Used for people or organizations involved in loans/money owed.
+
+```text
+contacts
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+name TEXT NOT NULL
+phone TEXT
+email TEXT
+notes TEXT
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+---
+
+# 10. BUDGETS
+
+```text
+budgets
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+category_id UUID NOT NULL
+amount NUMERIC NOT NULL
+period TEXT DEFAULT 'monthly'
+start_date DATE
+end_date DATE
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+Periods:
+
+```text
+weekly
+monthly
+yearly
+```
+
+---
+
+# 11. GOALS
+
+```text
+goals
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+name TEXT NOT NULL
+target_amount NUMERIC NOT NULL
+current_amount NUMERIC DEFAULT 0
+target_date DATE
+status TEXT DEFAULT 'active'
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+---
+
+# 12. RECURRING TRANSACTIONS
+
+```text
+recurring_transactions
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+account_id UUID
+category_id UUID
+type TEXT NOT NULL
+amount NUMERIC NOT NULL
+description TEXT
+frequency TEXT
+next_date DATE
+is_active BOOLEAN DEFAULT true
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+---
+
+# 13. ATTACHMENTS
+
+```text
+attachments
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+file_name TEXT
+file_path TEXT
+file_type TEXT
+file_size INTEGER
+source TEXT
+created_at TIMESTAMPTZ
+```
+
+Store files in private Supabase Storage buckets.
+
+---
+
+# 14. INTEGRATIONS
+
+```text
+integrations
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+provider TEXT NOT NULL
+service TEXT NOT NULL
+is_active BOOLEAN DEFAULT false
+configuration JSONB
+created_at TIMESTAMPTZ
+updated_at TIMESTAMPTZ
+```
+
+Services:
+
+```text
+ai
+ocr
+speech
+```
+
+API keys must never be exposed in frontend code.
+
+---
+
+# 15. AI REQUESTS
+
+For debugging and usage tracking:
+
+```text
+ai_requests
+```
+
+Fields:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+provider TEXT
+service TEXT
+request_type TEXT
+status TEXT
+input_metadata JSONB
+output_metadata JSONB
+created_at TIMESTAMPTZ
+```
+
+Do not store sensitive raw financial prompts unnecessarily.
+
+---
+
+# 16. SECURITY
+
+Enable Supabase Row Level Security on all user-owned tables.
+
+Every user-owned table must restrict records using the authenticated user ID.
+
+Conceptually:
+
+```sql
+auth.uid() = user_id
+```
+
+Users must never be able to access another user's:
+
+* Transactions
+* Accounts
+* Loans
+* Grants
+* Goals
+* Budgets
+* Attachments
+* API settings
+
+Use private storage buckets.
+
+---
+
+# 17. APPLICATION NAVIGATION
+
+Use five main navigation items:
+
+```text
+Home
+Transactions
+Plans
+Insights
+More
+```
+
+Have a prominent `+ Add` action.
+
+Desktop:
+
+```text
+Sidebar
+----------------
+🏠 Home
+💳 Transactions
+🎯 Plans
+📊 Insights
+📚 Learn
+⚙ Settings
+```
+
+Mobile:
+
+```text
+Home
+Transactions
+     +
+Plans
+More
+```
+
+---
+
+# 18. HOME PAGE
+
+The home page should be extremely simple.
+
+Display:
+
+```text
+Good morning 👋
+
+Total Balance
+Rs. 85,450
+
+This Month
+
+Money In
+Rs. 100,000
+
+Money Out
+Rs. 42,500
+
+Saved
+Rs. 57,500
+```
+
+Then:
+
+```text
++ Add Transaction
+
+🎙 Voice
+✍ Text
+📷 Scan
+```
+
+Then recent transactions.
+
+Then one financial insight.
+
+Then one financial tip.
+
+Do not overload the dashboard with charts.
+
+---
+
+# 19. ADD TRANSACTION
+
+When user taps `+ Add`:
+
+```text
+What happened with your money?
+
+🎙 Speak
+
+✍ Type
+
+📷 Scan
+
+────────────
+
+Manual
+
+💰 Money In
+💸 Money Out
+🏦 Loan
+🎁 Grant
+↔ Transfer
+```
+
+---
+
+# 20. VOICE INPUT
+
+Support browser/device speech recognition initially.
+
+Example:
+
+User says:
+
+> I spent 500 rupees on lunch.
+
+Convert to text.
+
+Then send the text to the AI transaction parser.
+
+Expected result:
+
+```json
+{
+  "type": "expense",
+  "amount": 500,
+  "currency": "NPR",
+  "category": "Food",
+  "description": "Lunch",
+  "date": "today"
+}
+```
+
+Show confirmation:
+
+```text
+I understood:
+
+Food
+Lunch
+
+Rs. 500
+Today
+
+[✓ Add]
+[Edit]
+```
+
+Do not automatically save without confirmation.
+
+---
+
+# 21. TEXT INPUT
+
+Create one natural-language input box.
+
+Placeholder:
+
+```text
+Example: I spent 500 on lunch
+```
+
+Examples should rotate:
+
+```text
+I received salary of 85000
+I spent 1200 on groceries
+I borrowed 20000 from Ram
+I paid 15000 rent
+I received an education grant of 100000
+```
+
+The AI parser should convert the text to structured transaction data.
+
+---
+
+# 22. SCAN RECEIPT
+
+User selects:
+
+```text
+📷 Scan
+```
+
+Open camera/file picker.
+
+Accept:
+
+* JPG
+* JPEG
+* PNG
+* WEBP
+* PDF where supported
+
+Workflow:
+
+```text
+Camera
+ ↓
+Upload
+ ↓
+OCR
+ ↓
+Extract text
+ ↓
+AI interpretation
+ ↓
+Transaction preview
+ ↓
+User confirmation
+ ↓
+Save
+```
+
+---
+
+# 23. RECEIPT PREVIEW
+
+Example:
+
+```text
+Receipt detected
+
+Merchant
+Bhat-Bhateni
+
+Amount
+Rs. 1,450
+
+Category
+Groceries
+
+Date
+03 Oct 2026
+
+[Add Expense]
+[Edit]
+```
+
+If confidence is low, show:
+
+> Please check the amount before saving.
+
+---
+
+# 24. MANUAL ENTRY
+
+Manual form should be minimal.
+
+Required:
+
+```text
+Type
+Amount
+```
+
+Optional:
+
+```text
+Category
+Description
+Date
+Account
+Merchant
+Attachment
+```
+
+Do not make ten fields mandatory.
+
+---
+
+# 25. TRANSACTIONS PAGE
+
+Show:
+
+```text
+Transactions
+
+[Search]
+
+[All]
+[Income]
+[Expense]
+[Loans]
+
+October 2026
+
+Today
+
+Salary              +85,000
+Lunch                  -500
+Fuel                 -2,000
+
+Yesterday
+
+Internet             -1,500
+Freelance            +12,000
+```
+
+Filters:
+
+* Date
+* Type
+* Category
+* Account
+* Amount
+
+---
+
+# 26. TRANSACTION DETAIL
+
+Show:
+
+```text
+Food
+
+Rs. 500
+
+Lunch
+
+Today
+12:30 PM
+
+Category
+Food
+
+Account
+Cash
+
+Added using
+Voice
+
+[Edit]
+[Delete]
+```
+
+---
+
+# 27. PLANS PAGE
+
+Plans should contain three sections:
+
+```text
+Budgets
+Goals
+Loans
+```
+
+---
+
+# 28. BUDGETS
+
+Example:
+
+```text
+Food
+
+Rs. 11,250 / Rs. 15,000
+
+75%
+
+███████████░░░
+
+10 days remaining
+```
+
+Allow:
+
+```text
+Create Budget
+Edit Budget
+Delete Budget
+```
+
+Provide simple explanations.
+
+---
+
+# 29. GOALS
+
+Example:
+
+```text
+Emergency Fund
+
+Rs. 35,000
+of
+Rs. 150,000
+
+23%
+
+████░░░░░░░░
+```
+
+Buttons:
+
+```text
+Add Money
+Edit
+```
+
+---
+
+# 30. LOANS
+
+Display:
+
+```text
+Loans
+
+Home Loan
+
+Remaining
+Rs. 420,000
+
+Monthly Payment
+Rs. 15,000
+
+Next Payment
+10 Oct
+```
+
+Create/edit/delete loan.
+
+Allow recording loan payments.
+
+---
+
+# 31. GRANTS
+
+Grant tracking should be accessible from Plans or More.
+
+Example:
+
+```text
+Education Grant
+
+Received
+Rs. 100,000
+
+Used
+Rs. 35,000
+
+Remaining
+Rs. 65,000
+```
+
+Allow:
+
+```text
+Add Grant
+Record Grant Expense
+Edit Grant
+```
+
+---
+
+# 32. INSIGHTS PAGE
+
+Do not make it a complicated analytics dashboard.
+
+Show:
+
+### Money this month
+
+```text
+Income       Rs. 100,000
+Expenses      Rs. 42,500
+Savings       Rs. 57,500
+```
+
+### Spending
+
+Show a simple chart.
+
+### Top categories
+
+Show 5 categories.
+
+### Comparison
+
+Compare current month with previous month.
+
+Example:
+
+> Food spending is 12% higher than last month.
+
+---
+
+# 33. FINANCIAL HEALTH
+
+Add a simple optional financial-health summary.
+
+Do not present it as a professional financial assessment.
+
+Show measurable indicators such as:
+
+```text
+Savings rate
+Budget usage
+Debt amount
+Emergency fund progress
+```
+
+Example:
+
+```text
+Your Financial Snapshot
+
+Savings Rate       22%
+Budget Usage       68%
+Debt Remaining     Rs. 240,000
+Emergency Fund     35%
+```
+
+Explain each metric.
+
+---
+
+# 34. LEARN PAGE
+
+Create short financial-literacy cards.
+
+Topics:
+
+```text
+What is a budget?
+What is an emergency fund?
+What is interest?
+How do loans work?
+What is compound interest?
+Needs vs wants
+Saving vs investing
+Understanding debt
+Understanding income
+Understanding expenses
+Understanding inflation
+```
+
+Each lesson should be short and easy to understand.
+
+---
+
+# 35. CONTEXTUAL EDUCATION
+
+Whenever useful, show a small:
+
+```text
+💡 Learn
+```
+
+card.
+
+Example:
+
+> You saved 15% of your recorded income this month.
+
+Then:
+
+> **What is a savings rate?**
+
+Explain the concept in simple language.
+
+Never shame users.
+
+Avoid statements such as:
+
+> "You are spending too much."
+
+Prefer:
+
+> "Your food spending is higher than your recent average."
+
+---
+
+# 36. SEARCH
+
+Global transaction search should support natural language where possible.
+
+Examples:
+
+```text
+food expenses
+salary
+expenses above 5000
+transactions from last month
+Bhat-Bhateni
+```
+
+Start with normal database search.
+
+AI-powered search can be added later.
+
+---
+
+# 37. NOTIFICATIONS
+
+Support:
+
+* Budget alerts
+* Loan due reminders
+* Goal reminders
+* Recurring transaction reminders
+
+Keep notifications limited.
+
+Allow users to disable them.
+
+---
+
+# 38. API INTEGRATION PAGE
+
+Create:
+
+```text
+Settings
+ → Integrations
+```
+
+Display:
+
+```text
+AI
+
+Provider
+[Select]
+
+API Key
+[••••••••••••]
+
+[Test Connection]
+
+Status
+✓ Connected
+```
+
+Also:
+
+```text
+OCR
+
+Provider
+[Select]
+
+API Key
+[••••••••••••]
+
+[Test Connection]
+```
+
+And:
+
+```text
+Speech
+
+Provider
+[Select]
+```
+
+---
+
+# 39. API SETUP INSTRUCTIONS
+
+Every integration must have:
+
+```text
+ⓘ How to connect
+```
+
+Example:
+
+```text
+Connect AI Provider
+
+1. Open the provider API page.
+2. Create an account if required.
+3. Create an API key.
+4. Copy the key.
+5. Paste it here.
+6. Click Test Connection.
+
+[Open Provider]
+```
+
+After testing:
+
+```text
+✓ Connection successful
+```
+
+or:
+
+```text
+Connection failed.
+
+Please check:
+• API key
+• Provider account
+• API quota
+• Internet connection
+```
+
+Do not hard-code provider-specific assumptions throughout the app.
+
+---
+
+# 40. AI PROVIDER ARCHITECTURE
+
+Create a provider interface.
+
+```typescript
+interface AIProvider {
+  parseTransaction(
+    input: string
+  ): Promise<TransactionData>;
+
+  analyzeReceipt(
+    image: File
+  ): Promise<TransactionData>;
+
+  generateInsight(
+    financialData: FinancialData
+  ): Promise<Insight>;
+}
+```
+
+Implement providers independently.
+
+Example:
+
+```text
+providers/
+  ai/
+    interface.ts
+    provider-a.ts
+    provider-b.ts
+```
+
+The application should be able to switch providers through configuration.
+
+---
+
+# 41. IMPORTANT AI RULE
+
+AI should interpret information.
+
+AI should NOT be the source of truth for financial calculations.
+
+Do NOT ask AI:
+
+> Calculate the user's balance.
+
+Instead:
+
+```text
+Database
+ ↓
+Financial Calculation Engine
+ ↓
+Calculated data
+ ↓
+AI
+ ↓
+Explanation
+```
+
+---
+
+# 42. FINANCIAL CALCULATION ENGINE
+
+Create deterministic functions:
+
+```typescript
+calculateBalance()
+calculateIncome()
+calculateExpenses()
+calculateSavings()
+calculateSavingsRate()
+calculateBudgetUsage()
+calculateGoalProgress()
+calculateLoanBalance()
+```
+
+Example:
+
+```typescript
+savings = income - expenses;
+```
+
+All financial calculations must be testable.
+
+---
+
+# 43. CONFIRMATION SYSTEM
+
+Every AI-created transaction goes through:
+
+```text
+Input
+ ↓
+AI
+ ↓
+Structured Data
+ ↓
+Validation
+ ↓
+Preview
+ ↓
+User Confirmation
+ ↓
+Database
+```
+
+Never:
+
+```text
+Input
+ ↓
+AI
+ ↓
+Database
+```
+
+---
+
+# 44. VALIDATION
+
+Use Zod or equivalent schema validation.
+
+Example:
+
+```typescript
+const transactionSchema = z.object({
+  type: z.enum([
+    "income",
+    "expense",
+    "loan_received",
+    "loan_payment",
+    "grant_received",
+    "grant_expense",
+    "money_lent",
+    "money_received",
+    "transfer"
+  ]),
+  amount: z.number().positive(),
+  currency: z.string(),
+  category: z.string().optional(),
+  description: z.string().optional(),
+  date: z.string()
+});
+```
+
+Reject invalid AI responses.
+
+---
+
+# 45. MISSING INFORMATION
+
+If AI cannot determine the amount:
+
+> How much did you spend?
+
+If AI cannot determine the account:
+
+> Which account did you use?
+
+Options:
+
+```text
+Cash
+Bank
+Wallet
+Credit Card
+```
+
+Do not guess important financial information.
+
+---
+
+# 46. DESIGN SYSTEM
+
+The UI should be:
+
+* Clean
+* Modern
+* Friendly
+* Minimal
+* Mobile-first
+* Accessible
+
+Use cards sparingly.
+
+Avoid excessive gradients and visual clutter.
+
+Use clear typography.
+
+Use green/red carefully for financial movement, but don't rely solely on color.
+
+---
+
+# 47. RESPONSIVE DESIGN
+
+Must work on:
+
+* Mobile
+* Tablet
+* Desktop
+
+Mobile is the primary design target.
+
+The transaction-add experience must be extremely easy on mobile.
+
+---
+
+# 48. EMPTY STATES
+
+Every section needs a useful empty state.
+
+Example:
+
+```text
+No transactions yet.
+
+Tell us what happened with your money.
+
+🎙 Speak
+✍ Type
+📷 Scan
+```
+
+Budget:
+
+```text
+You haven't created a budget yet.
+
+A budget helps you decide how much
+you want to spend.
+
+[Create Budget]
+```
+
+Goals:
+
+```text
+No savings goals yet.
+
+Start with something simple.
+
+[Create Goal]
+```
+
+---
+
+# 49. ERROR HANDLING
+
+Voice failure:
+
+> We couldn't understand that.
+
+`Try Again`
+
+OCR failure:
+
+> We couldn't read this receipt.
+
+`Take Another Photo`
+
+AI failure:
+
+> We couldn't process this right now.
+
+`Enter Manually`
+
+Network failure:
+
+> Check your internet connection and try again.
+
+Every AI feature must have a manual fallback.
+
+---
+
+# 50. ACCESSIBILITY
+
+Support:
+
+* Keyboard navigation
+* Screen readers
+* Large touch targets
+* Accessible labels
+* Good contrast
+* Clear error messages
+* Reduced motion where appropriate
+
+Prepare the application for future Nepali language support.
+
+---
+
+# 51. INTERNATIONALIZATION
+
+The architecture should support:
+
+```text
+en
+ne
+```
+
+Initially implement English.
+
+Prepare all UI text through translation keys instead of hard-coding strings.
+
+Default currency:
+
+```text
+NPR
+```
+
+Default timezone:
+
+```text
+Asia/Kathmandu
+```
+
+Allow users to change currency/timezone later.
+
+---
+
+# 52. PERFORMANCE
+
+The application should:
+
+* Load dashboard quickly
+* Paginate transactions
+* Lazy-load heavy components
+* Compress uploaded images
+* Avoid unnecessary API calls
+* Cache appropriate queries
+* Use optimistic UI where safe
+
+Do not send entire transaction history to AI.
+
+Only send the minimum required aggregated information.
+
+---
+
+# 53. PRIVACY
+
+Financial data is sensitive.
+
+Implement:
+
+* Secure authentication
+* Supabase RLS
+* Private storage
+* Server-side API keys
+* Secure sessions
+* Data deletion
+* Data export
+* Privacy settings
+
+If external AI is used, clearly inform users that relevant data may be sent to the selected provider according to the provider's terms.
+
+---
+
+# 54. TESTING
+
+Create tests for:
+
+### Financial calculations
+
+```text
+Income
+Expenses
+Savings
+Savings rate
+Budget usage
+Goal progress
+Loan balance
+```
+
+### Transaction parser
+
+Test:
+
+```text
+I spent 500 on food
+salary 85000
+received 20000 from Ram
+borrowed 10000
+paid rent 15000
+received grant 100000
+```
+
+### Security
+
+Verify that one user cannot access another user's data.
+
+### UI
+
+Test:
+
+* Login
+* Add transaction
+* Voice flow
+* Text flow
+* Scan flow
+* Edit transaction
+* Delete transaction
+* Budget
+* Goal
+* Loan
+
+---
+
+# 55. DEVELOPMENT PHASES
+
+## Phase 1 — Foundation
+
+Build:
+
+* Supabase setup
+* Authentication
+* Database
+* RLS
+* Application shell
+* Navigation
+* Profile
+
+## Phase 2 — Core finance
+
+Build:
+
+* Accounts
+* Categories
+* Transactions
+* Income
+* Expenses
+* Dashboard
+
+## Phase 3 — Simple input
+
+Build:
+
+* Text input
+* Voice input
+* Manual input
+* AI parser
+* Confirmation flow
+
+## Phase 4 — Scan
+
+Build:
+
+* Camera/upload
+* OCR adapter
+* Receipt parser
+* Confirmation
+
+## Phase 5 — Planning
+
+Build:
+
+* Budgets
+* Goals
+* Loans
+* Grants
+
+## Phase 6 — Education
+
+Build:
+
+* Learn
+* Financial tips
+* Contextual explanations
+* Insights
+
+## Phase 7 — Integrations
+
+Build:
+
+* Provider management
+* API setup
+* Connection testing
+* Secure API configuration
+
+## Phase 8 — Polish
+
+Build:
+
+* Responsive design
+* Accessibility
+* Error states
+* Loading states
+* Empty states
+* Performance
+* Testing
+
+---
+
+# 56. MVP ACCEPTANCE CRITERIA
+
+The MVP is complete when a new user can:
+
+### Account
+
+* Create account
+* Login
+* Logout
+
+### Transaction
+
+* Add income
+* Add expense
+* Edit transaction
+* Delete transaction
+* Search transaction
+* Filter transaction
+
+### Voice
+
+User can say:
+
+> I spent 500 on lunch.
+
+and the app can produce a confirmation preview.
+
+### Text
+
+User can type:
+
+> Salary 85000 today.
+
+and receive a structured preview.
+
+### Scan
+
+User can upload a receipt and receive extracted transaction information.
+
+### Dashboard
+
+User can see:
+
+* Balance
+* Income
+* Expenses
+* Savings
+* Recent transactions
+
+### Plans
+
+User can create:
+
+* Budget
+* Goal
+* Loan
+* Grant
+
+### Insights
+
+User can understand:
+
+* Spending breakdown
+* Savings
+* Simple financial insights
+
+### Learn
+
+User can read basic financial education.
+
+### Security
+
+Users cannot access another user's financial data.
+
+---
+
+# 57. IMPORTANT IMPLEMENTATION RULES
+
+Follow these rules during development:
+
+### Rule 1
+
+Do not over-engineer the application.
+
+### Rule 2
+
+Do not build microservices for MVP.
+
+### Rule 3
+
+Do not hard-code an AI provider.
+
+### Rule 4
+
+Do not expose API keys in frontend code.
+
+### Rule 5
+
+Do not allow AI to directly write financial transactions.
+
+### Rule 6
+
+Always validate AI output.
+
+### Rule 7
+
+Always give users a confirmation step.
+
+### Rule 8
+
+Always provide manual entry if AI fails.
+
+### Rule 9
+
+All financial calculations must be deterministic.
+
+### Rule 10
+
+Use Supabase Row Level Security.
+
+### Rule 11
+
+Do not send unnecessary financial data to external AI providers.
+
+### Rule 12
+
+Keep the UI simple enough for a first-time finance-app user.
+
+---
+
+# 58. FINAL USER EXPERIENCE
+
+The application should ultimately feel like this:
+
+```text
+                PERSONAL FINANCE APP
+
+                         ↓
+
+              "What happened?"
+
+              ┌──────────┼──────────┐
+              ↓          ↓          ↓
+           🎙 Voice    ✍ Text     📷 Scan
+              └──────────┼──────────┘
+                         ↓
+                    AI understands
+                         ↓
+                      Confirm
+                         ↓
+                    Transaction
+                         ↓
+                    PostgreSQL
+                         ↓
+              ┌──────────┼──────────┐
+              ↓          ↓          ↓
+           Balance     Insights    Plans
+                                      ↓
+                            Budget / Goals / Loans
+                         ↓
+                       Learn
+                         ↓
+                Better financial habits
+```
+
+---
+
+# 59. CORE ARCHITECTURE
+
+```text
+USER
+ │
+ ├── Voice
+ ├── Text
+ ├── Scan
+ └── Manual
+ │
+ ▼
+NEXT.JS / REACT
+ │
+ ▼
+SUPABASE
+ │
+ ├── Authentication
+ ├── PostgreSQL
+ ├── Storage
+ └── Edge Functions
+ │
+ ├───────────────┬─────────────────┐
+ ▼               ▼                 ▼
+AI SERVICE      OCR SERVICE     FINANCIAL ENGINE
+ │               │                 │
+ ▼               ▼                 ▼
+Provider        Provider        Deterministic
+Adapter         Adapter         Calculations
+ │               │                 │
+ └───────────────┴─────────────────┘
+                 │
+                 ▼
+             VALIDATION
+                 │
+                 ▼
+            USER CONFIRM
+                 │
+                 ▼
+             TRANSACTION
+                 │
+                 ▼
+             POSTGRESQL
+                 │
+        ┌────────┼────────┐
+        ▼        ▼        ▼
+      HOME    INSIGHTS   PLANS
+                         │
+                  ┌──────┼──────┐
+                  ▼      ▼      ▼
+                Budget  Goals  Loans
+```
+
+---
+
+# 60. FINAL BUILD COMMAND
+
+When implementing this specification, build the application incrementally.
+
+First create the database and authentication.
+
+Then build the application shell.
+
+Then build transactions and dashboard.
+
+Then implement text input.
+
+Then voice.
+
+Then scanning/OCR.
+
+Then budgets, goals, loans and grants.
+
+Then insights and financial education.
+
+Then integrations.
+
+Do not generate fake financial data in production.
+
+For development, seed clearly marked demo data only.
+
+Do not claim an external API is connected unless the connection has actually been tested.
+
+The finished application must be functional, responsive, secure, and usable without AI/API configuration.
+
+The core manual finance functionality must always work independently.
+
+**Primary success criterion:**
+
+> A new user should be able to open the application and record their first financial transaction in less than 30 seconds without knowing anything about accounting.
