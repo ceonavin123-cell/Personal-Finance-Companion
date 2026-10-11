@@ -14,13 +14,10 @@ import {
 } from 'wouter';
 import { useAuthSession, signInWithPassword, signUpWithPassword, signOut, useDashboardSummary, useCategories, useTransactions, useCreateTransaction, useUpdateTransaction, useDeleteTransaction } from '@/hooks/useFinance';
 import type { CategoryRow, TransactionInput, TransactionRow, TransactionType, TransactionUpdate } from '@/lib/database.types';
-import { parseTransactionText } from '@/lib/transaction-parser';
-import { supabaseConfigured } from '@/lib/supabase';
 import type { ReactNode, FormEvent } from 'react';
 
 const queryClient = new QueryClient();
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date());
-const dateInputValue = (date: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kathmandu' }).format(new Date(date));
 const money = (amount: number, currency = 'NPR') => new Intl.NumberFormat('en-NP', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
 const dateLabel = (date: string) => new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Kathmandu' }).format(new Date(date));
 const firstName = (name?: string | null) => name?.trim().split(/\s+/)[0] || 'there';
@@ -165,10 +162,9 @@ function TransactionsPage() {
 
 function EditDialog({ item, categories, busy, onClose, onSave }: { item: TransactionRow; categories: CategoryRow[]; busy: boolean; onClose: () => void; onSave: (v: TransactionUpdate) => void }) {
   const [type, setType] = useState<TransactionType>(item.type);
-  const [categoryId, setCategoryId] = useState(item.category_id || '');
   const relevant = categories.filter(c=>c.type===type);
-  const submit = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); onSave({ type, amount: Number(f.get('amount')), description: String(f.get('description')||'').trim() || null, merchant: String(f.get('merchant')||'').trim() || null, transaction_date: String(f.get('date')), category_id: categoryId || null }); };
-   return <Modal onClose={onClose}><h2 className="serif text-2xl">Edit your note</h2><p className="mt-1 text-sm text-muted-foreground">Make it match what happened.</p><form onSubmit={submit} className="mt-5 space-y-4"><TypeSwitch value={type} onChange={value=>{setType(value);setCategoryId('');}}/><label className="block text-xs font-semibold">Amount<input name="amount" required min="0.01" step="0.01" type="number" defaultValue={item.amount} className="field mt-1.5" data-testid="edit-amount"/></label><label className="block text-xs font-semibold">What was it?<input name="description" defaultValue={item.description || ''} className="field mt-1.5" data-testid="edit-description"/></label><label className="block text-xs font-semibold">Shop or person<input name="merchant" defaultValue={item.merchant || ''} className="field mt-1.5" data-testid="edit-merchant"/></label><div className="grid grid-cols-2 gap-3"><label className="block text-xs font-semibold">Category<select name="category" required value={categoryId} onChange={e=>setCategoryId(e.target.value)} className="field mt-1.5"><option value="">Choose one</option>{relevant.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="block text-xs font-semibold">Date<input name="date" type="date" defaultValue={dateInputValue(item.transaction_date)} required className="field mt-1.5"/></label></div><div className="flex gap-2 pt-1"><button type="button" onClick={onClose} className="flex-1 rounded-full border border-border py-3 text-sm font-semibold">Cancel</button><button disabled={busy} className="flex-1 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60" data-testid="button-save-edit">{busy?'Saving…':'Save changes'}</button></div></form></Modal>;
+  const submit = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); const f = new FormData(e.currentTarget); onSave({ type, amount: Number(f.get('amount')), description: String(f.get('description')||'').trim() || null, merchant: String(f.get('merchant')||'').trim() || null, transaction_date: String(f.get('date')), category_id: String(f.get('category')||'') || null }); };
+  return <Modal onClose={onClose}><h2 className="serif text-2xl">Edit your note</h2><p className="mt-1 text-sm text-muted-foreground">Make it match what happened.</p><form onSubmit={submit} className="mt-5 space-y-4"><TypeSwitch value={type} onChange={setType}/><label className="block text-xs font-semibold">Amount<input name="amount" required min="0.01" step="0.01" type="number" defaultValue={item.amount} className="field mt-1.5" data-testid="edit-amount"/></label><label className="block text-xs font-semibold">What was it?<input name="description" defaultValue={item.description || ''} className="field mt-1.5" data-testid="edit-description"/></label><label className="block text-xs font-semibold">Shop or person<input name="merchant" defaultValue={item.merchant || ''} className="field mt-1.5" data-testid="edit-merchant"/></label><div className="grid grid-cols-2 gap-3"><label className="block text-xs font-semibold">Category<select name="category" defaultValue={item.category_id || ''} className="field mt-1.5"><option value="">Choose one</option>{relevant.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="block text-xs font-semibold">Date<input name="date" type="date" defaultValue={item.transaction_date.slice(0,10)} required className="field mt-1.5"/></label></div><div className="flex gap-2 pt-1"><button type="button" onClick={onClose} className="flex-1 rounded-full border border-border py-3 text-sm font-semibold">Cancel</button><button disabled={busy} className="flex-1 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60" data-testid="button-save-edit">{busy?'Saving…':'Save changes'}</button></div></form></Modal>;
 }
 
 function ConfirmDialog({ title, message, busy, onClose, onConfirm }: { title: string; message: string; busy: boolean; onClose: () => void; onConfirm: () => void }) {
@@ -187,18 +183,12 @@ type EntryMode = 'manual'|'text'|'voice';
 type Draft = { type: TransactionType; amount: string; description: string; merchant: string; category_id: string; transaction_date: string; source: TransactionInput['source'] };
 function blankDraft(mode: EntryMode = 'manual'): Draft { return { type:'expense', amount:'', description:'', merchant:'', category_id:'', transaction_date:today(), source:mode==='manual'?'manual':mode==='text'?'text':'voice' }; }
 
-function draftFromText(text: string, categories: CategoryRow[], source: 'text' | 'voice'): Draft | null {
-  const parsed = parseTransactionText(text, categories, source);
-  if (!parsed) return null;
-  return {
-    type: parsed.type,
-    amount: String(parsed.amount),
-    description: parsed.description.slice(0, 100),
-    merchant: parsed.merchant || '',
-    category_id: parsed.category_id || '',
-    transaction_date: today(),
-    source,
-  };
+function parseLocally(text: string, categories: CategoryRow[]): Partial<Draft> {
+  const amountMatch = text.replace(/,/g,'').match(/(?:rs\.?|npr|रु\.?)?\s*(\d+(?:\.\d{1,2})?)/i);
+  const type: TransactionType = /\b(got|received|salary|earned|income|sold|paid me)\b/i.test(text) ? 'income' : 'expense';
+  const category = categories.filter(c=>c.type===type).find(c=>c.name.split(/\s+/).some(w=>w.length>3 && text.toLowerCase().includes(w.toLowerCase())));
+  const merchant = text.match(/\b(?:at|from|to)\s+([A-Za-z][A-Za-z0-9 &'’-]{1,28})/i)?.[1]?.trim();
+  return { amount: amountMatch?.[1] || '', type, description: text.trim().replace(/^(spent|paid|bought|got|received)\s+/i,'').slice(0,100), merchant: merchant || '', category_id: category?.id || '' };
 }
 
 function NewTransactionPage() {
@@ -217,25 +207,14 @@ function NewTransactionPage() {
   const available = categories.filter(c=>c.type===draft.type);
   const setField = (key: keyof Draft, value: string) => setDraft(d=>({...d,[key]:value}));
   const chooseMode = (next: EntryMode) => { setMode(next); setDraft(blankDraft(next)); setSentence(''); setTranscript(''); setReview(false); setError(''); };
-  const parseText = () => {
-    if(!sentence.trim()){setError('Write a few words first, like “I spent Rs 240 on lunch at Nima’s”.');return;}
-    const parsed = draftFromText(sentence, categories, 'text');
-    if(!parsed){setDraft({...blankDraft('text'),description:sentence.trim().slice(0,100)});setReview(false);setError('I could not identify a clear amount and whether the money came in or went out. Fill in the details below, then review your note.');return;}
-    setDraft(parsed);setReview(true);setError(parsed.category_id?'':'Choose a category before saving.');
-  };
+  const parseText = () => { if(!sentence.trim()){setError('Write a few words first, like “Rs 240 lunch at Nima’s”.');return;} setDraft(d=>({...d,...parseLocally(sentence,categories),source:'text'})); setReview(true); setError(''); };
   const startSpeech = () => {
     const Speech = (window as Window & { SpeechRecognition?: new () => SpeechRecognizer; webkitSpeechRecognition?: new () => SpeechRecognizer }).SpeechRecognition || (window as Window & { webkitSpeechRecognition?: new () => SpeechRecognizer }).webkitSpeechRecognition;
     if (!Speech) { setError('Speech input is not available in this browser. Type your note instead.'); return; }
     const recognition = new Speech(); recognition.lang='en-NP'; recognition.interimResults=false; recognition.maxAlternatives=1;
     recognition.onstart=()=>{setListening(true);setError('');}; recognition.onend=()=>setListening(false);
     recognition.onerror=()=>{setListening(false);setError('We could not hear that clearly. You can type your note instead.');};
-    recognition.onresult=(event)=>{
-      const heard=event.results[0][0].transcript;
-      setTranscript(heard);setSentence(heard);
-      const parsed=draftFromText(heard,categories,'voice');
-      if(!parsed){setDraft({...blankDraft('voice'),description:heard.trim().slice(0,100)});setReview(false);setError('I could not identify a clear amount and direction. Check the transcript and fill in the details below.');return;}
-      setDraft(parsed);setReview(true);setError(parsed.category_id?'':'Choose a category before saving.');
-    };
+    recognition.onresult=(event)=>{const heard=event.results[0][0].transcript;setTranscript(heard);setSentence(heard);setDraft(d=>({...d,...parseLocally(heard,categories),source:'voice'}));setReview(true);};
     recognition.start();
   };
   const submit = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); setError(''); if(!draft.amount || Number(draft.amount)<=0){setError('Add an amount greater than zero.');return;} if(!draft.category_id){setError('Choose a category before saving.');return;} setReview(true); };
@@ -289,55 +268,26 @@ function AuthPage({ signUp = false }: { signUp?: boolean }) {
   const [message,setMessage]=useState('');
   if(user&&!isLoading){navigate('/');return null;}
   const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setPending(true);setError('');setMessage('');const f=new FormData(e.currentTarget);const email=String(f.get('email'));const password=String(f.get('password'));try{const result=signUp?await signUpWithPassword(email,password,String(f.get('full_name'))):await signInWithPassword(email,password);if(result.error)throw result.error;if(signUp&&!result.data.session)setMessage('Check your email to confirm your account, then come back to sign in.');else navigate('/');}catch(err){setError(err instanceof Error?err.message:'Something went wrong. Please try again.');}finally{setPending(false);}};
-   useEffect(()=>{if(user&&!isLoading)navigate('/');},[user,isLoading,navigate]);
-   if(user&&!isLoading)return null;
-   return <div className="grain flex min-h-[100dvh] items-center justify-center px-5 py-10"><div className="grid w-full max-w-[940px] overflow-hidden rounded-[30px] border border-border bg-card soft-shadow md:grid-cols-[.9fr_1.1fr]">
+  return <div className="grain flex min-h-[100dvh] items-center justify-center px-5 py-10"><div className="grid w-full max-w-[940px] overflow-hidden rounded-[30px] border border-border bg-card soft-shadow md:grid-cols-[.9fr_1.1fr]">
     <div className="relative hidden min-h-[580px] flex-col justify-between overflow-hidden bg-[#203d35] p-9 text-[#f7f1e6] md:flex"><div className="absolute -right-24 top-20 h-80 w-80 rounded-full border border-white/10"/><div className="absolute -right-12 top-32 h-56 w-56 rounded-full border border-white/10"/><Brand dark/><div className="relative"><p className="mb-4 text-[10px] font-bold uppercase tracking-[.2em] text-[#dab384]">Money, without the fuss</p><h1 className="serif max-w-sm text-[43px] leading-[1.03] tracking-[-.04em]">A quieter way to keep track.</h1><p className="mt-4 max-w-xs text-sm leading-relaxed text-white/60">Write down what comes in and what goes out. See your own picture, one everyday note at a time.</p></div><div className="relative flex items-center gap-3 border-t border-white/10 pt-5 text-xs text-white/50"><span className="grid h-8 w-8 place-items-center rounded-full bg-white/10"><Wallet size={15}/></span>Made for your everyday in Nepal.</div></div>
     <div className="p-6 sm:p-10 md:p-12"><div className="mb-10 md:hidden"><Brand/></div><p className="mb-2 text-[10px] font-bold uppercase tracking-[.2em] text-[#9a7455]">{signUp?'A fresh page':'Welcome back'}</p><h2 className="serif text-[36px] tracking-[-.035em]">{signUp?'Make this yours.':'Come on in.'}</h2><p className="mt-2 text-sm text-muted-foreground">{signUp?'Create your private space to keep a note of money.':'Your notes will be right where you left them.'}</p>
-       {!supabaseConfigured&&<div className="mt-5 rounded-xl bg-[#f5e5df] px-4 py-3 text-sm text-[#914e40]" role="alert">Account access is unavailable until the Supabase project URL and anon key are set in the app environment.</div>}
-       {error&&<div className="mt-5 rounded-xl bg-[#f5e5df] px-4 py-3 text-sm text-[#914e40]" role="alert" data-testid="status-auth-error">{error}</div>}{message&&<div className="mt-5 rounded-xl bg-[#e6eee3] px-4 py-3 text-sm text-[#466548]" role="status" data-testid="status-auth-message">{message}</div>}
-       <form className="mt-7 space-y-4" onSubmit={submit}>{signUp&&<label className="block text-xs font-semibold">Your name<input name="full_name" autoComplete="name" required className="field mt-1.5" placeholder="What should we call you?" data-testid="input-full-name"/></label>}<label className="block text-xs font-semibold">Email address<input name="email" type="email" autoComplete="email" required className="field mt-1.5" placeholder="you@example.com" data-testid="input-email"/></label><label className="block text-xs font-semibold">Password<input name="password" type="password" autoComplete={signUp?'new-password':'current-password'} minLength={6} required className="field mt-1.5" placeholder="At least 6 characters" data-testid="input-password"/></label><button disabled={pending||!supabaseConfigured} className="mt-2 w-full rounded-full bg-primary py-3.5 text-sm font-bold text-primary-foreground transition hover:-translate-y-0.5 disabled:opacity-60" data-testid="button-auth-submit">{pending?'Just a moment…':signUp?'Create my space':'Sign in'}</button></form>
+      {error&&<div className="mt-5 rounded-xl bg-[#f5e5df] px-4 py-3 text-sm text-[#914e40]" role="alert" data-testid="status-auth-error">{error}</div>}{message&&<div className="mt-5 rounded-xl bg-[#e6eee3] px-4 py-3 text-sm text-[#466548]" role="status" data-testid="status-auth-message">{message}</div>}
+      <form className="mt-7 space-y-4" onSubmit={submit}>{signUp&&<label className="block text-xs font-semibold">Your name<input name="full_name" autoComplete="name" required className="field mt-1.5" placeholder="What should we call you?" data-testid="input-full-name"/></label>}<label className="block text-xs font-semibold">Email address<input name="email" type="email" autoComplete="email" required className="field mt-1.5" placeholder="you@example.com" data-testid="input-email"/></label><label className="block text-xs font-semibold">Password<input name="password" type="password" autoComplete={signUp?'new-password':'current-password'} minLength={6} required className="field mt-1.5" placeholder="At least 6 characters" data-testid="input-password"/></label><button disabled={pending} className="mt-2 w-full rounded-full bg-primary py-3.5 text-sm font-bold text-primary-foreground transition hover:-translate-y-0.5 disabled:opacity-60" data-testid="button-auth-submit">{pending?'Just a moment…':signUp?'Create my space':'Sign in'}</button></form>
       <p className="mt-6 text-center text-xs text-muted-foreground">{signUp?'Already have a space?':'New to Money Companion?'} <Link href={signUp?'/sign-in':'/sign-up'} className="font-bold text-primary underline-offset-4 hover:underline" data-testid="link-auth-switch">{signUp?'Sign in':'Create an account'}</Link></p><p className="mt-8 border-t border-border pt-5 text-center text-[10px] leading-relaxed text-muted-foreground">Your transactions are private to your account.<br/>Money Companion is a simple record, not financial advice.</p>
     </div>
   </div></div>;
 }
 
 function PublicHome() {
-  return <div className="min-h-[90dvh]">
-    <header className="flex items-center justify-between py-3"><Brand/><div className="flex items-center gap-2"><Link href="/sign-in" className="rounded-full px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground" data-testid="link-public-signin">Sign in</Link><Link href="/sign-up" className="rounded-full bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground" data-testid="link-public-signup">Get started</Link></div></header>
-    <div className="grid items-center gap-12 py-14 md:grid-cols-[1.1fr_.9fr] md:py-24">
-      <div><p className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#d9c8a9] bg-[#f4eddd] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.16em] text-[#7d694b]"><span className="h-1.5 w-1.5 rounded-full bg-[#67876b]"/>For the everyday in Nepal</p>
-        <h1 className="serif max-w-[700px] text-[54px] leading-[.99] tracking-[-.055em] sm:text-[76px]">Money notes,<br/><span className="text-[#9a7455]">made human.</span></h1>
-        <p className="mt-6 max-w-[470px] text-base leading-relaxed text-muted-foreground">A calm little place to write down money in and money out. No accounting words, no big setup. Just your own picture, getting clearer over time.</p>
-        <div className="mt-8 flex flex-wrap gap-3"><Link href="/sign-up" className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition hover:-translate-y-0.5" data-testid="button-get-started">Start with a note <ArrowRight size={16}/></Link><Link href="/sign-in" className="rounded-full border border-border bg-card px-6 py-3.5 text-sm font-semibold" data-testid="button-public-login">I already have an account</Link></div>
-        <p className="mt-4 text-[10px] text-muted-foreground">Private to your account · NPR by default.</p>
-      </div>
-      <div className="relative mx-auto w-full max-w-[400px]"><div className="absolute -inset-5 rotate-[-4deg] rounded-[36px] border border-[#d7c5a3] bg-[#efe5d0]"/>
-        <div className="relative rotate-[2deg] rounded-[28px] border border-[#eee5d7] bg-[#fffaf0] p-6 shadow-[0_28px_70px_-40px_rgba(51,62,49,.42)]">
-          <div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-[#8d7959]">A note to self</span><span className="rounded-full bg-[#e3ebdd] px-2.5 py-1 text-[9px] font-bold text-[#537453]">YOUR SPACE</span></div>
-          <p className="serif mt-7 text-[28px] leading-tight">A little more at ease.</p><div className="my-6 h-px bg-[#e7decf]"/>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 rounded-2xl bg-[#e7ede1] p-3.5"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white/70 text-[#557c60]"><ArrowDownLeft size={16}/></span><div><p className="text-xs font-semibold text-[#405b48]">Money coming in</p><p className="mt-0.5 text-[10px] text-[#708071]">Your income notes</p></div></div>
-            <div className="flex items-center gap-3 rounded-2xl bg-[#f1e6da] p-3.5"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white/70 text-[#a27653]"><ArrowUpRight size={16}/></span><div><p className="text-xs font-semibold text-[#674c3c]">Money going out</p><p className="mt-0.5 text-[10px] text-[#887668]">Your expense notes</p></div></div>
-          </div>
-          <div className="mt-5 rounded-2xl bg-[#eae9dc] p-4"><p className="text-[10px] text-[#68705f]">Your recorded balance</p><p className="serif mt-1 text-lg text-[#29473d]">Appears after your first note</p><p className="mt-2 text-[9px] text-[#828371]">Only your saved records are counted.</p></div>
-        </div>
-        <div className="absolute -bottom-9 -left-10 hidden h-20 w-20 items-center justify-center rounded-full bg-[#cd8867] text-[#fff5e9] md:flex"><span className="serif -rotate-12 text-center text-[14px] leading-tight">your money<br/>your way</span></div>
-      </div>
-    </div>
-    <div className="grid gap-5 border-t border-border py-8 sm:grid-cols-3"><IntroNote title="Quick to jot down" body="Type a number, say it aloud, or write it in your own words. You always review before saving."/><IntroNote title="No money jargon" body="Record an expense or income in plain language. Choose from your available categories."/><IntroNote title="Only your real notes" body="Your view grows from what you record. No made-up numbers or predictions."/></div>
-  </div>;
+  return <div className="min-h-[90dvh]"><header className="flex items-center justify-between py-3"><Brand/><div className="flex items-center gap-2"><Link href="/sign-in" className="rounded-full px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground" data-testid="link-public-signin">Sign in</Link><Link href="/sign-up" className="rounded-full bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground" data-testid="link-public-signup">Get started</Link></div></header><div className="grid items-center gap-12 py-14 md:grid-cols-[1.1fr_.9fr] md:py-24"><div><p className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#d9c8a9] bg-[#f4eddd] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.16em] text-[#7d694b]"><span className="h-1.5 w-1.5 rounded-full bg-[#67876b]"/>For the everyday in Nepal</p><h1 className="serif max-w-[700px] text-[54px] leading-[.99] tracking-[-.055em] sm:text-[76px]">Money notes,<br/><span className="text-[#9a7455]">made human.</span></h1><p className="mt-6 max-w-[470px] text-base leading-relaxed text-muted-foreground">A calm little place to write down money in and money out. No accounting words, no big setup. Just your own picture, getting clearer over time.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/sign-up" className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition hover:-translate-y-0.5" data-testid="button-get-started">Start with a note <ArrowRight size={16}/></Link><Link href="/sign-in" className="rounded-full border border-border bg-card px-6 py-3.5 text-sm font-semibold" data-testid="button-public-login">I already have an account</Link></div><p className="mt-4 text-[10px] text-muted-foreground">Private to you. In Nepali rupees. Nothing to connect.</p></div><div className="relative mx-auto w-full max-w-[400px]"><div className="absolute -inset-5 rotate-[-4deg] rounded-[36px] border border-[#d7c5a3] bg-[#efe5d0]"/><div className="relative rotate-[2deg] rounded-[28px] border border-[#eee5d7] bg-[#fffaf0] p-6 shadow-[0_28px_70px_-40px_rgba(51,62,49,.42)]"><div className="flex items-center justify-between"><span className="text-[10px] font-bold uppercase tracking-[.18em] text-[#8d7959]">A note to self</span><span className="rounded-full bg-[#e3ebdd] px-2.5 py-1 text-[9px] font-bold text-[#537453]">TODAY</span></div><p className="serif mt-7 text-[28px] leading-tight">A little more at ease.</p><div className="my-6 h-px bg-[#e7decf]"/><div className="space-y-4"><PreviewLine color="bg-[#dce9d9]" icon={<ArrowDownLeft size={16}/>} title="Pay from the shop" caption="Income · this morning" value="+ Rs 1,850"/><PreviewLine color="bg-[#f1e2d4]" icon={<Coffee size={16}/>} title="Tea & a bun" caption="Food · nearby" value="− Rs 125"/></div><div className="mt-6 rounded-2xl bg-[#eae9dc] p-4"><p className="text-[10px] text-[#68705f]">Your recorded balance</p><p className="mono mt-1 text-2xl font-medium text-[#29473d]">Rs 1,725</p><p className="mt-2 text-[9px] text-[#828371]">A preview, not real transaction data.</p></div></div><div className="absolute -bottom-9 -left-10 hidden h-20 w-20 items-center justify-center rounded-full bg-[#cd8867] text-[#fff5e9] md:flex"><span className="serif -rotate-12 text-center text-[14px] leading-tight">your money<br/>your way</span></div></div></div><div className="grid gap-5 border-t border-border py-8 sm:grid-cols-3"><IntroNote title="Quick to jot down" body="Type a number, say it aloud, or write it in your own words. You always review before saving."/><IntroNote title="No money jargon" body="Record an expense or income in plain language. Choose from your available categories."/><IntroNote title="Only your real notes" body="Your view grows from what you record. No made-up numbers or predictions." /></div></div>;
 }
+function PreviewLine({ color, icon, title, caption, value }: { color: string; icon: ReactNode; title: string; caption: string; value: string }) { return <div className="flex items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-[14px] ${color} text-[#4a6951]`}>{icon}</span><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-[#304036]">{title}</p><p className="text-[10px] text-[#8b8b7d]">{caption}</p></div><span className="mono text-[11px] font-medium text-[#455a49]">{value}</span></div>; }
 function IntroNote({ title, body }: { title: string; body: string }) { return <div className="py-1"><p className="serif text-[19px]">{title}</p><p className="mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">{body}</p></div>; }
 
 function Router() {
   const { user, isLoading } = useAuthSession();
   const [location] = useLocation();
-  const privateRoute = location === '/transactions' || location === '/transactions/new';
-  if (privateRoute && isLoading) return <div className="grid min-h-[100dvh] place-items-center"><div className="w-full max-w-xl space-y-4 px-6"><div className="h-10 w-52 animate-pulse rounded-xl bg-muted"/><div className="h-48 animate-pulse rounded-[26px] bg-muted"/></div></div>;
-  if (privateRoute && !user) return <AuthRedirect to="/sign-in"/>;
-  if (location === '/' && isLoading) return <div className="grid min-h-[100dvh] place-items-center"><div className="h-9 w-48 animate-pulse rounded-xl bg-muted"/></div>;
-  if (location === '/' && !user) return <RoutedErrorBoundary><PublicHome/></RoutedErrorBoundary>;
+  if ((location==='/transactions'||location==='/transactions/new') && !isLoading && !user) return <AuthRedirect to="/sign-in"/>;
   if (location === '/sign-in' || location.startsWith('/sign-in/')) return <AuthPage/>;
   if (location === '/sign-up' || location.startsWith('/sign-up/')) return <AuthPage signUp/>;
   return <RoutedErrorBoundary><Switch>
